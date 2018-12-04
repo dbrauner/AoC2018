@@ -17,19 +17,11 @@ def calculate_overlap(data):
                     claimed.add(id)
                 else:
                     checked[(_i, _j)] = id
-        # print(' overlap ', overlap)
-        # print('checked', checked)
     for i in range(1341):
         if str(i) not in claimed:
+            print("Part Two")
             print("uniq", i)
-    ids = set(checked.values())
-    # print(ids)
-    sym = ids ^ claimed
-    # print(sym)
-    # print(len(sym))
-    # print(checked.values())
-    # print(claimed)
-    # print(len(overlap))
+    print(len(overlap))
 
 
 if __name__ == '__main__':

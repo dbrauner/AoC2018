@@ -1,6 +1,5 @@
-import datetime
-import random
 import collections
+import datetime
 
 
 def do_it(data):
@@ -11,51 +10,42 @@ def do_it(data):
         d = datetime.datetime.strptime(date_string, f)
         if '#' in _i:
             sub = _i[_i.index('#') + 1:]
-            id = sub[:sub.index(' ')]
-            id = int(id)
-            schedule[date_string] = id
+            schedule[d] = int(sub[:sub.index(' ')])
         if 'asleep' in _i:
-            schedule[date_string] = 'asleep'
+            schedule[d] = 'asleep'
         if 'wakes up' in _i:
-            schedule[date_string] = 'wakes up'
-    # os = [k for k, v in sorted(schedule.items(), key=lambda p: p[1], reverse=True)]
+            schedule[d] = 'wakes up'
     items = list(schedule.keys())
-    # random.shuffle(items)
     items.sort()
 
-    print(items)
-
-    oschedule = collections.OrderedDict()
+    ordered_schedule = collections.OrderedDict()
     for item in items:
-        oschedule[item] = schedule[item]
+        ordered_schedule[item] = schedule[item]
 
     sleeping = {}
     sleeping_total = {}
-    lastId = 0
-    for _os in oschedule:
-        if isinstance(oschedule[_os], int):
-            lastId = oschedule[_os]
+    last_id = 0
+    for _os in ordered_schedule:
+        if isinstance(ordered_schedule[_os], int):
+            last_id = ordered_schedule[_os]
             continue
-        if 'asleep' == oschedule[_os]:
-            start = datetime.datetime.strptime(_os, f)
+        if 'asleep' == ordered_schedule[_os]:
+            start = _os
             continue
-        if 'wakes up' == oschedule[_os]:
-            end = datetime.datetime.strptime(_os, f)
+        if 'wakes up' == ordered_schedule[_os]:
+            end = _os
             diff = end - start
-            # print(diff)
-            minutessince = int(diff.total_seconds() / 60)
-            # print(minutessince)
-            if lastId in sleeping_total:
-                sleeping_total[lastId] += minutessince
+            minutes_since = int(diff.total_seconds() / 60)
+            if last_id in sleeping_total:
+                sleeping_total[last_id] += minutes_since
             else:
-                sleeping_total[lastId] = minutessince
+                sleeping_total[last_id] = minutes_since
             minute = datetime.timedelta(minutes=1)
             while start < end:
-                # print(start)
-                if (lastId, start.minute) in sleeping:
-                    sleeping[(lastId, start.minute)] += 1
+                if (last_id, start.minute) in sleeping:
+                    sleeping[(last_id, start.minute)] += 1
                 else:
-                    sleeping[(lastId, start.minute)] = 1
+                    sleeping[(last_id, start.minute)] = 1
                 start += minute
     max_sleep = 0
     id_sleep = 0
@@ -64,39 +54,30 @@ def do_it(data):
             max_sleep = sleeping_total[_i]
             id_sleep = _i
 
-    print(id_sleep)
     max_sleep = 0
     for _i in sleeping:
         if _i[0] == id_sleep and sleeping[_i] > max_sleep:
             max_sleep = sleeping[_i]
             max_time = int(_i[1]) * int(_i[0])
-            print(max_time)
-
+    print('Part One', max_time)
     # Part Two
-    print('Part Two')
     for _i in sleeping:
         if sleeping[_i] > max_sleep:
             max_sleep = sleeping[_i]
             max_time = int(_i[1]) * int(_i[0])
-            print(_i[1], _i[0], max_time)
-
-    # oschedule = collections.OrderedDict(sorted(schedule.__iter__()))
-
-    # dt = parse('Mon Feb 15 2010')
-    # datetime.datetime(2010, 2, 15, 0, 0)
-    # print(dt.strftime('%d/%m/%Y'))
+    print('Part Two', max_time)
 
 
 if __name__ == '__main__':
-    print("Day 3: https://adventofcode.com/2018/day/3")
+    print("Day 4: https://adventofcode.com/2018/day/4")
 
     file = open("test_input.txt", 'r')
 
     _test_input = file.read().split('\n')
-    # Test Part One
+    print('#Test Set')
     do_it(_test_input)
 
     file = open("input.txt", 'r')
     _input = file.read().split('\n')
-    print("#Part One")
+    print("#Solutions")
     do_it(_input)

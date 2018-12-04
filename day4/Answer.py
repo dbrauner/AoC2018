@@ -2,7 +2,7 @@ import collections
 import datetime
 
 
-def do_it(data):
+def parse_schedule(data):
     schedule = {}
     f = "%Y-%m-%d %H:%M"
     for _i in data:
@@ -21,6 +21,11 @@ def do_it(data):
     ordered_schedule = collections.OrderedDict()
     for item in items:
         ordered_schedule[item] = schedule[item]
+    return ordered_schedule
+
+
+def do_it(data):
+    ordered_schedule = parse_schedule(data)
 
     sleeping = {}
     sleeping_total = {}

@@ -10,6 +10,9 @@ def do_it(data):
     coord = list()
     max_x = 0
     max_y = 0
+    lines = [l.split() for l in data]
+    r =
+    r = ((x, y) for i in data i.split(' '))
     for _i in range(len(data)):
         xy = list(map(int, str(data[_i]).replace(',', '').split(' ')))
         coord.append(xy)

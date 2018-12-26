@@ -1,6 +1,21 @@
 import operator
 import os
 import sys
+import collections
+
+
+class Queue:
+    def __init__(self):
+        self.elements = collections.deque()
+
+    def empty(self):
+        return len(self.elements) == 0
+
+    def put(self, x):
+        self.elements.append(x)
+
+    def get(self):
+        return self.elements.popleft()
 
 
 class Unit:
@@ -11,6 +26,28 @@ class Unit:
         self.life = 200
         # self.cross_mod = 0
         # self.dead = False
+
+
+class SquareGrid:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.walls = []
+
+    def in_bounds(self, id):
+        (x, y) = id
+        return 0 <= x < self.width and 0 <= y < self.height
+
+    def passable(self, id):
+        return id not in self.walls
+
+    def neighbors(self, id):
+        (x, y) = id
+        results = [(x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y)]
+
+        results = filter(self.in_bounds, results)
+        results = filter(self.passable, results)
+        return results
 
 
 def print_map(_map, units):
@@ -29,8 +66,115 @@ def print_map(_map, units):
                 s += x
         if len(line_units) > 0:
             for unit in line_units:
-                s += ' ' + unit._class + '(' + str(unit.life) + ')'
+                s += ', ' + unit._class + '(' + str(unit.life) + ')'
         print(s)
+
+
+def bsf_search(graph, start, goals):
+    frontier = Queue()
+    frontier.put(start)
+    came_from = {}
+    came_from[start] = None
+
+    while not frontier.empty():
+        current = frontier.get()
+        if current in goals:
+            break
+
+        for next in graph.neighbors(current):
+            if next not in came_from:
+                frontier.put(next)
+                came_from[next] = current
+
+    return came_from, current
+
+
+def create_graph(the_map, units, unit):
+    d_units = {(unit._x, unit._y): unit.life for unit in units}
+
+    graph = SquareGrid(len(the_map[0]), len(the_map))
+
+    for i, x in enumerate(the_map):
+        for j, y in enumerate(the_map[i]):
+            if the_map[i][j] == '#':
+                graph.walls.append((i, j))
+            if (i, j) in d_units:
+                for a, u in enumerate(units):
+                    if (i, j) == (u._x, u._y) and (i, j) != (unit._x, unit._y) and unit._class == u._class:
+                        graph.walls.append((i, j))
+    return graph
+
+
+def calculate_cost_to_reach(graph, came_from, current):
+    min_cost = sys.maxsize
+    for next in graph.neighbors(current):
+        if next in came_from:
+            cost = 0
+            p = next
+            while came_from[p] is not None:
+                cost += 1
+                p = came_from[p]
+            if cost < min_cost:
+                min_cost = cost
+    return min_cost
+
+
+def move_unit_to_closest_target(unit, target, graph):
+    x, y = unit._x, unit._y
+    next_positions = [(x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y)]
+    selected_position = None
+    selected = {}
+    nearest = sys.maxsize
+    for next_pos in next_positions:
+        if next_pos in graph.walls:
+            continue
+        came_from, current = bsf_search(graph, next_pos, target)
+        min_cost = calculate_cost_to_reach(graph, came_from, current)
+        if min_cost == nearest:
+            selected[current] = next_pos
+        if min_cost < nearest:
+            nearest = min_cost
+            # selected_position = next_pos
+            selected.clear()
+            selected[current] = next_pos
+    selected_list = list(collections.OrderedDict(sorted(selected.items())).values())
+    # selected.sort(key=operator.itemgetter(0,1))
+    unit._x = selected_list[0][0]
+    unit._y = selected_list[0][1]
+
+
+def attack_enemy_with_least_hp(unit, graph, enemies):
+    x, y = unit._x, unit._y
+    next_positions = [(x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y)]
+    selected_enemy = None
+    min_hp = sys.maxsize
+
+    for next_pos in next_positions:
+        if next_pos in graph.walls:
+            continue
+        for i, enemy in enumerate(enemies):
+            if (enemy._x, enemy._y) == next_pos:
+                if enemy.life < min_hp:
+                    min_hp = enemy.life
+                    selected_enemy = i
+    attack_enemy(unit, enemies[selected_enemy])
+
+def execute_action(enemies, unit, _map, units):
+    graph = create_graph(_map, units, unit)
+    d_enemies = {(unit._x, unit._y): unit.life for unit in enemies}
+
+    came_from, target = bsf_search(graph, (unit._x, unit._y), d_enemies)
+    if target not in d_enemies: # impossible to reach target
+        return
+
+    min_cost = calculate_cost_to_reach(graph, came_from, target)
+
+    if min_cost > 0:
+        move_unit_to_closest_target(unit, d_enemies, graph)
+        min_cost -= 1
+    if min_cost == 0:
+        attack_enemy_with_least_hp(unit, graph, enemies)
+    pass
 
 
 def find_enemies(unit, units):
@@ -141,36 +285,37 @@ def calculate_steps(unit, enemy, _map, units, move):
 def attack_enemy(unit, enemy):
     if unit.life > 0:
         enemy.life -= 3
-    # pass
 
-
-def do_turn(unit, units, _map):
+def do_turn(unit, units, _map, counter):
     continue_battle = True
     enemies = find_enemies(unit, units)
     if len(enemies) == 0:
         continue_battle = False
         return continue_battle
+    execute_action(enemies, unit, _map, units)
 
-    enemy_to_attack = - 1
-    near_distance = sys.maxsize
-    minimum_hp = sys.maxsize
-    for i, enemy in enumerate(enemies):
-        steps = calculate_steps(unit, enemy, _map, units, False)
-        if near_distance > steps > - 1:
-            enemy_to_attack = i
-            near_distance = steps
-            minimum_hp = enemy.life
-        if near_distance == steps and enemy.life < minimum_hp:
-            enemy_to_attack = i
-            minimum_hp = enemy.life
-    if near_distance > 0:
-        calculate_steps(unit, enemies[enemy_to_attack], _map, units, True)
-        near_distance -= 1
+    # enemy_to_attack = - 1
+    # near_distance = sys.maxsize
+    # minimum_hp = sys.maxsize
+    # for i, enemy in enumerate(enemies):
+    #     steps = calculate_steps(unit, enemy, _map, units, False)
+    #     if near_distance > steps > - 1:
+    #         enemy_to_attack = i
+    #         near_distance = steps
+    #         minimum_hp = enemy.life
+    #     if near_distance == steps and enemy.life < minimum_hp:
+    #         enemy_to_attack = i
+    #         minimum_hp = enemy.life
+    # if near_distance > 0:
+    #     calculate_steps(unit, enemies[enemy_to_attack], _map, units, True)
+    #     near_distance -= 1
+    #
+    # if near_distance == 0:
+    #     attack_enemy(unit, enemies[enemy_to_attack])
 
-    if near_distance == 0:
-        attack_enemy(unit, enemies[enemy_to_attack])
-
-    print_map(_map, units)
+    # os.system('cls')
+    # print('Round ' + str(counter))
+    # print_map(_map, units)
 
     return continue_battle
 
@@ -194,12 +339,14 @@ def do_it(_input):
     counter = 0
     while True:
         units.sort(key=operator.attrgetter('_x', '_y'))
-        os.system('clear')
-        print('Round ' + str(counter))
+        # os.system('cls')
+        print(''
+              ''
+              'Round ' + str(counter))
         print_map(_map, units)
 
         for unit in units:
-            continue_battle = do_turn(unit, units, _map)
+            continue_battle = do_turn(unit, units, _map, counter)
             if not continue_battle:
                 break
         units = [x for x in units if x.life > 0]
@@ -216,7 +363,7 @@ def do_it(_input):
 
 if __name__ == '__main__':
     print('day 15')
-    print('#Test Set')
+    # print('#Test Set')
     # file = open("test_input.txt", 'r')
     # _test_input = file.read().split('\n')
     # assert do_it(_test_input) == 27730
@@ -236,11 +383,15 @@ if __name__ == '__main__':
     # file = open("test_input_6.txt", 'r')
     # _test_input = file.read().split('\n')
     # assert do_it(_test_input) == 18740
-    #
-    #
+
+    # file = open("round_29.txt", 'r')
+    # _input = file.read().split('\n')
+    # print("#Solutions")
+    # print(do_it(_input))
 
 
     file = open("input.txt", 'r')
     _input = file.read().split('\n')
     print("#Solutions")
     print(do_it(_input))
+    print('incorrect answers: 194040 ')
